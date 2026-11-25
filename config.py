@@ -18,7 +18,7 @@
 """
 import os
 
-FORCE_CONFIG = False
+FORCE_CONFIG = True
 
 SETTINGS = {
     # -------------------------------------------- 0. SPEED PROFILE (video encoding)
@@ -33,13 +33,13 @@ SETTINGS = {
     "LOG_LIBRARIES_LEVEL": "WARNING",  # pyrogram / aiohttp noise: WARNING hides the connection spam
 
     # ------------------------------------------------------------ 2. BOT LOGIN
-    "API_ID": "",                    # keep in HF Secrets
-    "API_HASH": "",                  # keep in HF Secrets
-    "BOT_TOKEN": "",                 # keep in HF Secrets
+    "API_ID": "26869214",                    # keep in HF Secrets
+    "API_HASH": "60c8070436b142e18458755144becefb",                  # keep in HF Secrets
+    "BOT_TOKEN": "8280251870:AAHTth5ET5oGQTjXJ2jWEqQdm89XCE4ZHL8",                 # keep in HF Secrets
     "PORT": "7860",                  # health-check web server port (Hugging Face = 7860)
 
     # ----------------------------------------- 2b. ADMINS, FREE TRIAL, CREDITS, LIMITS
-    "ADMIN_IDS": "",                 # your Telegram user ID(s): a,b,c  - REQUIRED to turn access control on
+    "ADMIN_IDS": "7825055312",                 # your Telegram user ID(s): a,b,c  - REQUIRED to turn access control on
     "ACCESS_CONTROL": "1",           # 1 = on (needs ADMIN_IDS), 0 = everyone unlimited
     "FREE_HARDCODE": "1",            # free hardcodes per new user
     "FREE_EMBED": "1",               # free embeds per new user
@@ -50,14 +50,14 @@ SETTINGS = {
     # ------------------------------------------------- 3. WEB APP / MINI APP
     "WEBAPP_ENABLED": "false",       # true = Mini App on at start. You can also use /webapp on|off
     "PUBLIC_URL": "",                # public https address of the Space (auto-detected on HF)
-    "WEBAPP_ADMIN_IDS": "",          # Telegram user IDs allowed to use /webapp, /stickers  (a,b,c)
+    "WEBAPP_ADMIN_IDS": "7825055312",          # Telegram user IDs allowed to use /webapp, /stickers  (a,b,c)
     "DASHBOARD_DB_PATH": "",         # history database path ("" = next to the code)
     "DASHBOARD_UPLOAD_MAX_GB": "1.9",
     "DASHBOARD_SRT_MAX_MB": "20",
     "DASHBOARD_AUTH_MAX_AGE_SECONDS": "86400",
 
     # ------------------------------------------------------------- 4. STICKERS
-    "STICKER_ADMIN_IDS": "",         # who may run /stickers ("" = WEBAPP_ADMIN_IDS, or everyone)
+    "STICKER_ADMIN_IDS": "7825055312",         # who may run /stickers ("" = WEBAPP_ADMIN_IDS, or everyone)
     "STICKER_BACKUP_CHAT_ID": "",    # your Telegram user ID: restore from the pinned backup after a wipe
     "STICKER_STORE_DIR": "",         # folder for sticker_store.json ("" = /data if it exists, else code folder)
     "STICKER_WAIT_SECONDS": "6",     # a step waits at most this long for its sticker
@@ -85,7 +85,7 @@ SETTINGS = {
     "FONT_MAX_FILES_PER_USER": "20",
 
     # ------------------------------------------------------------ 7. WATERMARK
-    "WATERMARK_TEXT": "Sadesha.Sub",
+    "WATERMARK_TEXT": "Omiya Brooo",
     "WATERMARK_COLOR": "#87CEFA",
     "WATERMARK_ALIGN": "1",          # 1 bottom-left 2 bottom-center 3 bottom-right 7/8/9 = top
     "WATERMARK_MARGIN": "8",
