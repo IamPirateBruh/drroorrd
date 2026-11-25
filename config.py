@@ -85,7 +85,7 @@ SETTINGS = {
     "FONT_MAX_FILES_PER_USER": "20",
 
     # ------------------------------------------------------------ 7. WATERMARK
-    "WATERMARK_TEXT": "Omiya Brooo",
+    "WATERMARK_TEXT": "",
     "WATERMARK_COLOR": "#87CEFA",
     "WATERMARK_ALIGN": "1",          # 1 bottom-left 2 bottom-center 3 bottom-right 7/8/9 = top
     "WATERMARK_MARGIN": "8",
