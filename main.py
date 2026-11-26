@@ -1934,7 +1934,6 @@ async def hardcode_video_ffmpeg(
 probe_video = ve.probe_video
 choose_container = ve.choose_container
 build_plan = ve.build_plan
-hardcode_video_ffmpeg = ve.hardcode_video_ffmpeg
 generate_thumbnail = ve.generate_thumbnail
 
 # ------------------------------------------------------------------------------
