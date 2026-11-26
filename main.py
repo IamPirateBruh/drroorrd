@@ -308,6 +308,61 @@ def _load_wm_settings() -> Dict[str, str]:
 
 WM_SETTINGS: Dict[str, str] = _load_wm_settings()
 
+# ---- per-user automatic intro settings ----
+INTRO_FILE = BASE_DIR / "intro_settings.json"
+INTRO_FIELDS = ("title", "promo", "website", "telegram", "credit")
+INTRO_DEFAULTS = {
+    "enabled": False,
+    "mode": "fields",  # fields or custom
+    "duration": 5.0,
+    "fields": {
+        "title": "Movie Name (2026) Language WEB",
+        "promo": "සිංහල උපසිරැසි සහිත චිත්‍රපට සහ කතාමාලා\nඔන්ලයින් බලන්න, ඩවුන්ලෝඩ් කරන්න, අප හා එක්වන්න",
+        "website": "WWW.YOURSITE.COM",
+        "telegram": "Official Telegram Channel - @YourChannel",
+        "credit": "සිංහල උපසිරැසි ගැන්වීම",
+    },
+    "custom_text": "ඔබගේ හැඳින්වීම මෙතැන ලියන්න",
+}
+
+def _load_intro_settings() -> Dict[str, Dict[str, Any]]:
+    try:
+        raw = json.loads(INTRO_FILE.read_text(encoding="utf-8"))
+        return raw if isinstance(raw, dict) else {}
+    except Exception:
+        return {}
+
+INTRO_SETTINGS: Dict[str, Dict[str, Any]] = _load_intro_settings()
+
+def get_intro_settings(user_id: int) -> Dict[str, Any]:
+    saved = INTRO_SETTINGS.get(str(user_id), {})
+    result = json.loads(json.dumps(INTRO_DEFAULTS, ensure_ascii=False))
+    if isinstance(saved, dict):
+        for key in ("enabled", "mode", "duration", "custom_text"):
+            if key in saved:
+                result[key] = saved[key]
+        if isinstance(saved.get("fields"), dict):
+            result["fields"].update({k: str(v)[:500] for k, v in saved["fields"].items() if k in INTRO_FIELDS})
+    try:
+        result["duration"] = max(1.0, min(30.0, float(result["duration"])))
+    except (TypeError, ValueError):
+        result["duration"] = 5.0
+    result["enabled"] = bool(result["enabled"])
+    result["mode"] = "custom" if result["mode"] == "custom" else "fields"
+    result["custom_text"] = str(result.get("custom_text", ""))[:2000]
+    return result
+
+def save_intro_settings(user_id: int, settings: Dict[str, Any]) -> None:
+    INTRO_SETTINGS[str(user_id)] = settings
+    tmp = INTRO_FILE.with_suffix(".tmp")
+    try:
+        tmp.write_text(json.dumps(INTRO_SETTINGS, ensure_ascii=False, indent=2), encoding="utf-8")
+        tmp.replace(INTRO_FILE)
+    except Exception as exc:
+        logger.error("Could not save intro settings: %s", exc)
+
+INTRO_EDIT_PENDING: Dict[int, str] = {}
+
 def clean_wm_text(text: str) -> str:
     text = re.sub(r"[{}\\\r\n]", "", text or "").strip()
     return text[:40]
@@ -1255,6 +1310,7 @@ def convert_srt_to_ass(
     clip_len_ms: Optional[int] = None,
     shift_ms: int = 0,
     style: Optional[Dict[str, Any]] = None,
+    intro_user_id: Optional[int] = None,
 ):
     """
     SRT -> ASS with flawless Sinhala complex shaping and colour retention.
@@ -1292,6 +1348,10 @@ def convert_srt_to_ass(
     wm_text = clean_wm_text(watermark_text or "")
     if wm_text:
         dialogues.append(f"Dialogue: 0,0:00:00.00,9:59:59.99,WatermarkStyle,,0,0,0,,{wm_text}")
+
+    # Intro is added as independent ASS events. Original SRT timestamps are never rewritten.
+    if intro_user_id is not None:
+        dialogues.extend(_intro_ass_events(intro_user_id, style, clip_len_ms))
 
     for block in blocks:
         lines = [l.strip() for l in block.split("\n") if l.strip()]
@@ -1722,6 +1782,7 @@ async def hardcode_video_ffmpeg(
     job: Dict[str, Any],
     delay_ms: int = 0,
     style: Optional[Dict[str, Any]] = None,
+    intro_user_id: Optional[int] = None,
 ) -> Tuple[bool, str]:
     work_dir = video_path.parent
     ass_path = work_dir / f"sub_render_{time.time_ns()}.ass"
@@ -1733,6 +1794,7 @@ async def hardcode_video_ffmpeg(
         clip_len_ms=int(clip_secs * 1000) if clip_secs > 0 else None,
         shift_ms=int(delay_ms),
         style=style,
+        intro_user_id=intro_user_id,
     )
 
     abs_output_path = output_path.resolve()
@@ -4487,7 +4549,7 @@ async def delay_callback(client: Client, callback: CallbackQuery, data: str, use
 # ------------------------------------------------------------------------------
 # 7. PYROGRAM BOT HANDLERS & CALLBACKS
 # ------------------------------------------------------------------------------
-KNOWN_COMMANDS = ["start", "cancel", "setwm", "wm", "fonttest", "setfont", "fonts", "style", "intro", "sync", "menu", "delete", "stickers", "done", "webapp", "me", "account", "user", "users", "credit", "app_on", "app_off"]
+KNOWN_COMMANDS = ["start", "cancel", "setwm", "wm", "fonttest", "setfont", "fonts", "style", "introsettings", "intro", "sync", "menu", "delete", "stickers", "done", "webapp", "me", "account", "user", "users", "credit", "app_on", "app_off"]
 
 def time_prompt_keyboard(speed: str = DEFAULT_SPEED) -> InlineKeyboardMarkup:
     def lbl(key: str, name: str) -> str:
@@ -4534,7 +4596,7 @@ async def start_handler(client: Client, message: Message):
         "🔤 `/fonts` — upload, list and delete your fonts\n"
         "🧩 `/stickers` — save your own bot stickers\n"
         "🔄 `/sync` — English / Sinhala subtitle timing report\n"
-        "🏷 `/setwm name` — watermark  •  📝 `/intro` — intro subtitle\n"
+        "🏷 `/setwm name` — watermark  •  📝 `/introsettings` — automatic intro\n"
         "❌ `/cancel` — stop the running job\n\n"
         f"🕒 Your uploaded video is kept on the server for {KEEP_MINUTES} minutes.\n"
         f"🏷 Watermark: `{get_wm_text(message.from_user.id)}`"
@@ -4546,6 +4608,7 @@ async def start_handler(client: Client, message: Message):
         rows.append([InlineKeyboardButton("🚀 Open App", web_app=WebAppInfo(url=f"{PUBLIC_URL}/dashboard"))])
     rows.append([InlineKeyboardButton("🎨 Style", callback_data="style:open"),
                  InlineKeyboardButton("🔤 Fonts", callback_data="font:manager")])
+    rows.append([InlineKeyboardButton("📝 Automatic Intro", callback_data="intro:open")])
     await staged_send(client, message.chat.id, "welcome", welcome_text, InlineKeyboardMarkup(rows),
                       os.environ.get("TEXT_TEMP_START", "⏳ System starting......"))
     try:
@@ -4715,6 +4778,85 @@ async def style_handler(client: Client, message: Message):
 async def font_manager_handler(client: Client, message: Message):
     user_id = message.from_user.id
     await message.reply_text(font_manager_text(user_id), reply_markup=font_manager_keyboard(user_id))
+
+def intro_settings_text(user_id: int) -> str:
+    cfg = get_intro_settings(user_id)
+    mode = "තනිව නිර්මාණය කළ පෙළ" if cfg["mode"] == "custom" else "අංග පහ වෙන වෙනම"
+    return (
+        "📝 **ස්වයංක්‍රීය හැඳින්වීමේ සැකසුම්**\n\n"
+        f"තත්ත්වය: **{'සක්‍රිය' if cfg['enabled'] else 'අක්‍රිය'}**\n"
+        f"ආකාරය: **{mode}**\n"
+        f"කාලය: **{cfg['duration']:g} තත්පර**\n\n"
+        "සක්‍රිය කළ විට හැඳින්වීම වීඩියෝවේ ආරම්භයට එක් වේ. මුල් උපසිරැසිවල කාල සටහන් වෙනස් නොවේ."
+    )
+
+def intro_settings_keyboard(user_id: int) -> InlineKeyboardMarkup:
+    cfg = get_intro_settings(user_id)
+    B = InlineKeyboardButton
+    rows = [
+        [B("🔛 සක්‍රිය කරන්න" if not cfg["enabled"] else "⏸ අක්‍රිය කරන්න", callback_data="intro:toggle")],
+        [B("🧩 අංග පහ" , callback_data="intro:mode:fields"), B("✍️ මගේම පෙළ", callback_data="intro:mode:custom")],
+    ]
+    if cfg["mode"] == "fields":
+        rows += [
+            [B("🎬 චිත්‍රපට නම", callback_data="intro:edit:title"), B("📣 ප්‍රචාරණ පෙළ", callback_data="intro:edit:promo")],
+            [B("🌐 වෙබ් අඩවිය", callback_data="intro:edit:website"), B("✈️ නාලිකාව", callback_data="intro:edit:telegram")],
+            [B("✍️ ගෞරව දැක්වීම", callback_data="intro:edit:credit")],
+        ]
+    else:
+        rows.append([B("✍️ හැඳින්වීමේ පෙළ සංස්කරණය", callback_data="intro:edit:custom")])
+    rows += [[B("⏱ කාලය වෙනස් කරන්න", callback_data="intro:edit:duration")]]
+    return InlineKeyboardMarkup(rows)
+
+def _intro_ass_events(user_id: int, style: Optional[Dict[str, Any]], clip_len_ms: Optional[int]) -> list:
+    cfg = get_intro_settings(user_id)
+    if not cfg["enabled"]:
+        return []
+    duration_ms = int(cfg["duration"] * 1000)
+    if clip_len_ms is not None:
+        duration_ms = min(duration_ms, max(0, int(clip_len_ms)))
+    if duration_ms <= 0:
+        return []
+    if cfg["mode"] == "custom":
+        text = cfg["custom_text"].strip()
+        if not text:
+            return []
+        lines = [line.strip() for line in text.splitlines() if line.strip()][:8]
+        text = "\n".join(normalize_sinhala_text(line).replace("{", "").replace("}", "").replace("\\", "") for line in lines)
+        safe_text = convert_html_tags_to_ass(text).replace("\n", r"\N")
+        safe_text = safe_text.replace(r"\fnROUND", f"\fn{WM_FONT_FAMILY}")
+        safe_text = safe_text.replace(r"\fnSINH", f"\fn{ve.style_font_family(style)}")
+        return [rf"Dialogue: 2,0:00:00.00,{ms_to_ass_time(duration_ms)},Default,,0,0,0,,{{\an5\bord3\shad1\fad(250,350)}}{safe_text}"]
+
+    fields = cfg["fields"]
+    brand = clean_wm_text(get_wm_text(user_id)) or "Sadesha.Sub"
+    promo = fields.get("promo", "").replace("\r", "")
+    credit = fields.get("credit", "")
+    CY, YE, GR, RD = "&HEBD728&", "&H00EEFF&", "&H1EE146&", "&H2323EB&"
+    common = r"\an5\3c&H000000&\4c&H000000&"
+    cues = [
+        (0.0, fields.get("title", ""), r"\pos(960,230)\fnROUND\fs80\c" + CY + r"\bord5\shad3\fad(250,400)"),
+        (0.6, promo, r"\pos(960,475)\q2\fnSINH\fs58\c" + YE + r"\bord4\shad2\fad(250,400)"),
+        (1.4, fields.get("website", ""), r"\pos(960,650)\fnROUND\fs62\c" + RD + r"\bord4\shad2\fad(250,400)"),
+        (2.0, fields.get("telegram", ""), r"\pos(960,790)\fnROUND\fs52\c" + GR + r"\bord4\shad2\fad(250,400)"),
+        (2.6, (credit + (" " if credit and brand else "") + brand), r"\pos(960,935)\fnSINH\fs46\c" + CY + r"\bord3\shad1\fad(300,400)"),
+    ]
+    out = []
+    for start_s, raw, fmt in cues:
+        raw = str(raw or "").strip()
+        if not raw:
+            continue
+        start_ms = min(int(start_s * 1000), duration_ms - 1)
+        safe = normalize_sinhala_text(raw).replace("{", "").replace("}", "").replace("\\", "")
+        safe = convert_html_tags_to_ass(safe).replace("\n", r"\N")
+        safe = safe.replace(r"\fnROUND", f"\fn{WM_FONT_FAMILY}").replace(r"\fnSINH", f"\fn{ve.style_font_family(style)}")
+        out.append(f"Dialogue: 2,{ms_to_ass_time(start_ms)},{ms_to_ass_time(duration_ms)},Default,,0,0,0,,{{{common}{fmt}}}{safe}")
+    return out
+
+@bot.on_message(filters.command("introsettings") & filters.private)
+async def intro_settings_handler(client: Client, message: Message):
+    uid = message.from_user.id
+    await message.reply_text(intro_settings_text(uid), reply_markup=intro_settings_keyboard(uid))
 
 @bot.on_message(filters.command("intro") & filters.private)
 async def intro_handler(client: Client, message: Message):
@@ -5596,6 +5738,32 @@ async def callback_handler(client: Client, callback: CallbackQuery):
             logger.error(f"Style/font action failed for user {user_id}: {e}", exc_info=True)
             await callback.answer("Could not complete the action.", show_alert=True)
             return
+    if data.startswith("intro:"):
+        cfg = get_intro_settings(user_id)
+        if data == "intro:toggle":
+            cfg["enabled"] = not cfg["enabled"]
+            save_intro_settings(user_id, cfg)
+        elif data.startswith("intro:mode:"):
+            mode = data.rsplit(":", 1)[1]
+            if mode in ("fields", "custom"):
+                cfg["mode"] = mode
+                save_intro_settings(user_id, cfg)
+        elif data.startswith("intro:edit:"):
+            key = data.rsplit(":", 1)[1]
+            if key in INTRO_FIELDS or key in ("custom", "duration"):
+                INTRO_EDIT_PENDING[user_id] = key
+                prompts = {
+                    "title": "චිත්‍රපටයේ නම යවන්න:", "promo": "ප්‍රචාරණ පෙළ යවන්න (පේළි කිහිපයක් යැවිය හැක):",
+                    "website": "වෙබ් අඩවියේ පෙළ යවන්න:", "telegram": "ටෙලිග්‍රෑම් නාලිකාවේ පෙළ යවන්න:",
+                    "credit": "ගෞරව දැක්වීමේ පෙළ යවන්න:", "custom": "ඔබගේ හැඳින්වීමේ සම්පූර්ණ පෙළ යවන්න. පේළි වෙන් කිරීමට නව පේළි භාවිතා කරන්න:",
+                    "duration": "හැඳින්වීමේ කාලය තත්පරවලින් යවන්න (තත්පර 1 සිට 30 දක්වා):",
+                }
+                await callback.message.reply_text(prompts[key])
+                await callback.answer()
+                return
+        await safe_edit(callback.message, intro_settings_text(user_id), reply_markup=intro_settings_keyboard(user_id))
+        await callback.answer("සැකසුම් සුරැකුණා.")
+        return
     if data.startswith("file:"):
         parts = data.split(":", 2)
         if len(parts) == 3:
@@ -5671,6 +5839,24 @@ async def callback_handler(client: Client, callback: CallbackQuery):
 @bot.on_message(filters.text & filters.private & ~filters.command(KNOWN_COMMANDS))
 async def handle_time_and_process(client: Client, message: Message):
     user_id = message.from_user.id
+    pending_intro = INTRO_EDIT_PENDING.pop(user_id, None)
+    if pending_intro:
+        cfg = get_intro_settings(user_id)
+        value = (message.text or "").strip()
+        if pending_intro == "duration":
+            try:
+                cfg["duration"] = max(1.0, min(30.0, float(value)))
+            except ValueError:
+                INTRO_EDIT_PENDING[user_id] = pending_intro
+                await message.reply_text("තත්පර ගණනක් යවන්න. උදාහරණය: 5")
+                return
+        elif pending_intro == "custom":
+            cfg["custom_text"] = value[:2000]
+        elif pending_intro in INTRO_FIELDS:
+            cfg["fields"][pending_intro] = value[:500]
+        save_intro_settings(user_id, cfg)
+        await message.reply_text(intro_settings_text(user_id), reply_markup=intro_settings_keyboard(user_id))
+        return
     if await handle_pending_rename_input(client, message):
         return
     session = USER_DATA.get(user_id)
@@ -5969,6 +6155,7 @@ async def process_job(
                 video_path=video_path, srt_path=srt_path, output_path=output_video_path, info=info, plan=plan,
                 start_secs=start_secs, clip_secs=clip_secs, use_t=use_t, wm_text=wm_text,
                 status_msg=status_msg, job=job, delay_ms=delay_ms, style=subtitle_style,
+                intro_user_id=user_id,
             )
             await cleanup_event_sticker(chat_id, job, "encoding")
         finally:
@@ -6942,7 +7129,8 @@ BOT_COMMANDS = [
     BotCommand("setfont", "Choose a font"),
     BotCommand("setwm", "Set watermark text"),
     BotCommand("wm", "Show watermark text"),
-    BotCommand("intro", "Make an intro subtitle"),
+    BotCommand("introsettings", "Configure your automatic intro"),
+    BotCommand("intro", "Download a sample intro subtitle"),
     BotCommand("sync", "Subtitle sync check"),
     BotCommand("stickers", "Set bot stickers"),
     BotCommand("done", "Finish sticker setup"),
