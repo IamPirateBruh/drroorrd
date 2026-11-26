@@ -4780,31 +4780,31 @@ async def font_manager_handler(client: Client, message: Message):
 
 def intro_settings_text(user_id: int) -> str:
     cfg = get_intro_settings(user_id)
-    mode = "තනිව නිර්මාණය කළ පෙළ" if cfg["mode"] == "custom" else "අංග පහ වෙන වෙනම"
+    mode = "Editable Structure" if cfg["mode"] == "custom" else "Permenent Structure"
     return (
-        "📝 **ස්වයංක්‍රීය හැඳින්වීමේ සැකසුම්**\n\n"
-        f"තත්ත්වය: **{'සක්‍රිය' if cfg['enabled'] else 'අක්‍රිය'}**\n"
-        f"ආකාරය: **{mode}**\n"
-        f"කාලය: **{cfg['duration']:g} තත්පර**\n\n"
-        "සක්‍රිය කළ විට හැඳින්වීම වීඩියෝවේ ආරම්භයට එක් වේ. මුල් උපසිරැසිවල කාල සටහන් වෙනස් නොවේ."
+        "📝 **Auto Intro Settings**\n\n"
+        f"Status: **{'Activated' if cfg['enabled'] else 'Deactivated'}**\n"
+        f"Method: **{mode}**\n"
+        f"Time: **{cfg['duration']:g} Seconds**\n\n"
+        "When enabled, the intro is added to the beginning of the video. The timings of the original subtitles are not changed."
     )
 
 def intro_settings_keyboard(user_id: int) -> InlineKeyboardMarkup:
     cfg = get_intro_settings(user_id)
     B = InlineKeyboardButton
     rows = [
-        [B("🔛 සක්‍රිය කරන්න" if not cfg["enabled"] else "⏸ අක්‍රිය කරන්න", callback_data="intro:toggle")],
-        [B("🧩 අංග පහ" , callback_data="intro:mode:fields"), B("✍️ මගේම පෙළ", callback_data="intro:mode:custom")],
+        [B("🔛 Activate" if not cfg["enabled"] else "⏸ Deactivate", callback_data="intro:toggle")],
+        [B("🧩 Permenent Structure" , callback_data="intro:mode:fields"), B("✍️ Editable Structure", callback_data="intro:mode:custom")],
     ]
     if cfg["mode"] == "fields":
         rows += [
-            [B("🎬 චිත්‍රපට නම", callback_data="intro:edit:title"), B("📣 ප්‍රචාරණ පෙළ", callback_data="intro:edit:promo")],
-            [B("🌐 වෙබ් අඩවිය", callback_data="intro:edit:website"), B("✈️ නාලිකාව", callback_data="intro:edit:telegram")],
-            [B("✍️ ගෞරව දැක්වීම", callback_data="intro:edit:credit")],
+            [B("🎬 Movie Or Series Name", callback_data="intro:edit:title"), B("📣 Promo Text", callback_data="intro:edit:promo")],
+            [B("🌐 Website", callback_data="intro:edit:website"), B("✈️ Channel", callback_data="intro:edit:telegram")],
+            [B("✍️ Credit Text", callback_data="intro:edit:credit")],
         ]
     else:
-        rows.append([B("✍️ හැඳින්වීමේ පෙළ සංස්කරණය", callback_data="intro:edit:custom")])
-    rows += [[B("⏱ කාලය වෙනස් කරන්න", callback_data="intro:edit:duration")]]
+        rows.append([B("✍️ Edit Intro", callback_data="intro:edit:custom")])
+    rows += [[B("⏱ Edit Time", callback_data="intro:edit:duration")]]
     return InlineKeyboardMarkup(rows)
 
 def _intro_ass_events(user_id: int, style: Optional[Dict[str, Any]], clip_len_ms: Optional[int]) -> list:
