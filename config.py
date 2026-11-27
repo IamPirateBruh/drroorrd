@@ -33,13 +33,13 @@ SETTINGS = {
     "LOG_LIBRARIES_LEVEL": "WARNING",  # pyrogram / aiohttp noise: WARNING hides the connection spam
 
     # ------------------------------------------------------------ 2. BOT LOGIN
-    "API_ID": "26869214",                    # keep in HF Secrets
-    "API_HASH": "60c8070436b142e18458755144becefb",                  # keep in HF Secrets
-    "BOT_TOKEN": "8280251870:AAHTth5ET5oGQTjXJ2jWEqQdm89XCE4ZHL8",                 # keep in HF Secrets
+    "API_ID": int(os.environ["API_ID"]),                    # keep in HF Secrets
+    "API_HASH": os.environ["API_HASH"],                  # keep in HF Secrets
+    "BOT_TOKEN": os.environ["BOT_TOKEN"],                 # keep in HF Secrets
     "PORT": "7860",                  # health-check web server port (Hugging Face = 7860)
 
     # ----------------------------------------- 2b. ADMINS, FREE TRIAL, CREDITS, LIMITS
-    "ADMIN_IDS": "7825055312",                 # your Telegram user ID(s): a,b,c  - REQUIRED to turn access control on
+    "ADMIN_IDS": int(os.environ["ADMIN_IDS"]),                 # your Telegram user ID(s): a,b,c  - REQUIRED to turn access control on
     "ACCESS_CONTROL": "1",           # 1 = on (needs ADMIN_IDS), 0 = everyone unlimited
     "FREE_HARDCODE": "1",            # free hardcodes per new user
     "FREE_EMBED": "1",               # free embeds per new user
@@ -57,7 +57,7 @@ SETTINGS = {
     "DASHBOARD_AUTH_MAX_AGE_SECONDS": "86400",
 
     # ------------------------------------------------------------- 4. STICKERS
-    "STICKER_ADMIN_IDS": "7825055312",         # who may run /stickers ("" = WEBAPP_ADMIN_IDS, or everyone)
+    "STICKER_ADMIN_IDS": int(os.environ["STICKER_ADMIN_IDS"]),         # who may run /stickers ("" = WEBAPP_ADMIN_IDS, or everyone)
     "STICKER_BACKUP_CHAT_ID": "",    # your Telegram user ID: restore from the pinned backup after a wipe
     "STICKER_STORE_DIR": "",         # folder for sticker_store.json ("" = /data if it exists, else code folder)
     "STICKER_WAIT_SECONDS": "6",     # a step waits at most this long for its sticker
